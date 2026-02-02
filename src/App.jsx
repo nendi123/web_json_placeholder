@@ -36,6 +36,18 @@ function App() {
       const data = await response.json()
       // Ambil hanya 12 posts pertama
       setPosts(data.slice(0, 12))
+      showNotification('Data berhasil dimuat!', 'success')
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+      showNotification('Gagal memuat data. Silakan coba lagi.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // CREATE - Tambah post baru
+  const handleCreatePost = async (postData) => {
+    try {
       setOperationLoading(true)
       
       // Optimistic Update - Tampilkan data baru sebelum API response
@@ -67,6 +79,16 @@ function App() {
     } catch (error) {
       console.error('Error creating post:', error)
       // Rollback optimistic update jika gagal
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== Date.now()))
+      showNotification('Gagal menambahkan post. Silakan coba lagi.', 'error')
+      setShowForm(true)
+    } finally {
+      setOperationLoading(false)
+    }
+  }
+
+  // UPDATE - Edit post
+  const handleUpdatePost = async (postData) => {
     const originalPost = editingPost
     try {
       setOperationLoading(true)
@@ -89,6 +111,30 @@ function App() {
       if (!response.ok) {
         throw new Error('Gagal mengupdate post')
       }
+      
+      const updatedPost = await response.json()
+      setPosts(prevPosts => prevPosts.map(post => 
+        post.id === originalPost.id ? { ...updatedPost, id: originalPost.id } : post
+      ))
+      
+      showNotification('Post berhasil diupdate!', 'success')
+    } catch (error) {
+      console.error('Error updating post:', error)
+      // Rollback jika gagal
+      setPosts(prevPosts => prevPosts.map(post => 
+        post.id === originalPost.id ? originalPost : post
+      ))
+      showNotification('Gagal mengupdate post. Silakan coba lagi.', 'error')
+      setEditingPost(originalPost)
+      setShowForm(true)
+    } finally {
+      setOperationLoading(false)
+    }
+  }
+
+  // DELETE - Hapus post
+  const handleDeletePost = async (id) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus post ini?')) {
       const deletedPost = posts.find(post => post.id === id)
       try {
         // Optimistic Update - Hapus dari UI dulu
@@ -107,66 +153,11 @@ function App() {
         console.error('Error deleting post:', error)
         // Rollback jika gagal - kembalikan post yang dihapus
         setPosts(prevPosts => [...prevPosts, deletedPost])
-        showNotification('Gagal menghapus post. Silakan coba lagi.', 'error'success')
-    } catch (error) {
-      console.error('Error updating post:', error)
-      // Rollback jika gagal
-      setPosts(prevPosts => prevPosts.map(post => 
-      {notification && (
-        <Notification
-          message={notification.message}
-          type={notification.type}
-          onClose={() => setNotification(null)}
-        />
-      )}
-      
-        post.id === originalPost.id ? originalPost : post
-      ))
-      showNotification('Gagal mengupdate post. Silakan coba lagi.', 'error')
-      setEditingPost(originalPost)
-      setShowForm(true)
-    } finally {
-      setOperationLoading(false
-      console.error('Error creating post:', error)
-    }
-  }
-
-  // UPDATE - Edit post
-  const handleUpdatePost = async (postData) => {
-    try {
-      cons  loading={operationLoading}
-          t response = await fetch(`https://jsonplaceholder.typicode.com/posts/${editingPost.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(postData),
-        headers: {
-          'Content-type': 'application/json; charset=UTF-8',
-        },
-      })
-      const updatedPost = await response.json()
-      setPosts(posts.map(post => 
-        post.id === editingPost.id ? { ...updatedPost, id: editingPost.id } : post
-      ))
-      setShowForm(false)
-      setEditingPost(null)
-    } catch (error) {
-      console.error('Error updating post:', error)
-    }
-  }
-
-  // DELETE - Hapus post
-  const handleDeletePost = async (id) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus post ini?')) {
-      try {
-        await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`, {
-          method: 'DELETE',
-        })
-        setPosts(posts.filter(post => post.id !== id))
-      } catch (error) {
-        console.error('Error deleting post:', error)
+        showNotification('Gagal menghapus post. Silakan coba lagi.', 'error')
       }
     }
   }
-<Footer />
+
   const handleEdit = (post) => {
     setEditingPost(post)
     setShowForm(true)
@@ -179,6 +170,14 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
+      
       <Navbar 
         onAddClick={() => setShowForm(true)}
         viewMode={viewMode}
@@ -201,6 +200,7 @@ function App() {
             onClose={handleFormClose}
             initialData={editingPost}
             isEditing={!!editingPost}
+            loading={operationLoading}
           />
         )}
 
@@ -233,7 +233,7 @@ function App() {
         )}
       </main>
 
-      {/* <Footer /> */}
+      <Footer />
     </div>
   )
 }
